@@ -4,11 +4,11 @@ pub mod workspaces {
     use hyprland::prelude::*;
     use std::collections::HashMap;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Default)]
     pub struct Wrkspc {
-        _active: bool,
-        _visible: bool,
-        _monitor: String,
+        active: bool,
+        visible: bool,
+        monitor: String,
     }
 
     #[derive(Debug)]
@@ -24,40 +24,30 @@ pub mod workspaces {
         };
     }
 
-    // pub fn add(mut l: EventListener) -> EventListener {
-    //     l.add_workspace_change_handler(|id| println!("{id}"));
-    //     return l;
-    // }
-
     fn minify_workspaces(workspaces: Vec<Workspace>) -> HashMap<i32, Wrkspc> {
-        let monitors = Monitors::get().expect("upsie").to_vec();
+        let monitors = Monitors::get().unwrap().to_vec();
         let mut visible_workspaces: Vec<i32> = vec![];
-
         for monitor in &monitors {
             visible_workspaces.push(monitor.active_workspace.id);
         }
 
         let mut minified_initial_workspaces = HashMap::new();
-        let minified_initial_workspace = Wrkspc {
-            _active: false,
-            _visible: false,
-            _monitor: String::from(""),
-        };
-
-        for id in 1..10 {
-            let boxed_initial_workspace = minified_initial_workspace.clone();
-            minified_initial_workspaces.insert(id, boxed_initial_workspace);
+        for id in 1..=10 {
+            minified_initial_workspaces.insert(id, Wrkspc::default());
         }
 
         for workspace in workspaces {
-            let visible = visible_workspaces.contains(&workspace.id);
-            let wrkspc = Wrkspc {
-                _active: true,
-                _visible: visible,
-                _monitor: workspace.monitor,
-            };
-            minified_initial_workspaces.insert(workspace.id, wrkspc);
+            let id = workspace.id;
+            let wrkspc = minified_initial_workspaces.get_mut(&id).unwrap();
+
+            wrkspc.active = true;
+            wrkspc.monitor = workspace.monitor;
+
+            if visible_workspaces.contains(&id) {
+                wrkspc.visible = true
+            }
         }
+
         return minified_initial_workspaces;
     }
 }
