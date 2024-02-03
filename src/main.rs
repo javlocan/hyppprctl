@@ -15,13 +15,12 @@ fn main() -> Result<()> {
     // Checking arguments
     else {
         if args[1] == "workspaces" {
-            let wrkspcs = workspaces::get_wrkspcs();
-            println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
-            let mut listener = EventListener::new();
+            workspaces::print_initial_wrkspcs();
 
+            let mut listener = EventListener::new();
             listener.add_workspace_added_handler(|id| workspaces::add(id));
             listener.add_workspace_destroy_handler(|id| workspaces::destroy(id));
-
+            listener.add_workspace_change_handler(|_| workspaces::change());
             listener.start_listener().unwrap();
         }
     }
