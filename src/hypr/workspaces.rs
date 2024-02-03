@@ -16,43 +16,40 @@ pub struct Wrkspcs {
     pub workspaces: IndexMap<i32, Wrkspc>,
 }
 
-// pub struct Wrkspcs(IndexMap<i32, Wrkspc>);
-
-pub fn add(id: WorkspaceType) {
-    let mut wrkspcs = Wrkspcs::get();
-    wrkspcs.update_visible();
-
-    let id = i32::from_workspacetype(id);
-    let wrkspc = wrkspcs.workspaces.get_mut(&id).unwrap();
-    wrkspc.active = true;
-
-    println!("{}", serde_json::to_string(&wrkspcs).unwrap());
-}
-
-pub fn destroy(id: WorkspaceType) {
-    let mut wrkspcs = Wrkspcs::get();
-    wrkspcs.update_visible();
-
-    let id = i32::from_workspacetype(id);
-    let wrkspc = wrkspcs.workspaces.get_mut(&id).unwrap();
-    wrkspc.active = false;
-
-    println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
-}
-
-pub fn change() {
-    let mut wrkspcs = Wrkspcs::get();
-    wrkspcs.update_visible();
-
-    println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
-}
-
-pub fn print_initial_wrkspcs() {
-    let wrkspcs = Wrkspcs::get();
-    println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
-}
-
 impl Wrkspcs {
+    pub fn add(id: WorkspaceType) {
+        let mut wrkspcs = Wrkspcs::get();
+        wrkspcs.update_visible();
+
+        let id = i32::from_workspacetype(id);
+        let wrkspc = wrkspcs.workspaces.get_mut(&id).unwrap();
+        wrkspc.active = true;
+
+        println!("{}", serde_json::to_string(&wrkspcs).unwrap());
+    }
+
+    pub fn destroy(id: WorkspaceType) {
+        let mut wrkspcs = Wrkspcs::get();
+        wrkspcs.update_visible();
+
+        let id = i32::from_workspacetype(id);
+        let wrkspc = wrkspcs.workspaces.get_mut(&id).unwrap();
+        wrkspc.active = false;
+
+        println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
+    }
+
+    pub fn change() {
+        let mut wrkspcs = Wrkspcs::get();
+        wrkspcs.update_visible();
+
+        println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
+    }
+
+    pub fn print_initial_wrkspcs() {
+        let wrkspcs = Wrkspcs::get();
+        println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
+    }
     fn get() -> Wrkspcs {
         let workspaces = Workspaces::get().unwrap().to_vec();
         let minified_workspaces = Wrkspcs::from_vec(workspaces);

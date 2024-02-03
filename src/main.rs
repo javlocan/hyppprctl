@@ -1,6 +1,6 @@
 mod hypr;
 
-use crate::hypr::*;
+use crate::hypr::workspaces::*;
 use hyprland::{event_listener::EventListener, Result};
 use std::env;
 
@@ -15,15 +15,16 @@ fn main() -> Result<()> {
     // Checking arguments
     else {
         if args[1] == "workspaces" {
-            workspaces::print_initial_wrkspcs();
+            Wrkspcs::print_initial_wrkspcs();
 
             let mut listener = EventListener::new();
-            listener.add_workspace_added_handler(|id| workspaces::add(id));
-            listener.add_workspace_destroy_handler(|id| workspaces::destroy(id));
-            listener.add_workspace_change_handler(|_| workspaces::change());
+            listener.add_workspace_added_handler(|id| Wrkspcs::add(id));
+            listener.add_workspace_destroy_handler(|id| Wrkspcs::destroy(id));
+            listener.add_workspace_change_handler(|_| Wrkspcs::change());
             listener.start_listener().unwrap();
         }
     }
+
     Ok(())
 }
 
