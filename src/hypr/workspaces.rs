@@ -4,19 +4,11 @@ use hyprland::shared::WorkspaceType;
 use indexmap::IndexMap;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Default, Serialize)]
-pub struct Wrkspc {
-    active: bool,
-    visible: bool,
-    monitor: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Wrkspcs {
-    pub workspaces: IndexMap<i32, Wrkspc>,
-}
-
 impl Wrkspcs {
+    // -----------------------
+    /// Public functions
+    // -----------------------
+
     pub fn add(id: WorkspaceType) {
         let mut wrkspcs = Wrkspcs::get();
         wrkspcs.update_visible();
@@ -50,6 +42,11 @@ impl Wrkspcs {
         let wrkspcs = Wrkspcs::get();
         println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
     }
+
+    // -----------------------
+    /// Helper functions
+    // -----------------------
+
     fn get() -> Wrkspcs {
         let workspaces = Workspaces::get().unwrap().to_vec();
         let minified_workspaces = Wrkspcs::from_vec(workspaces);
@@ -60,11 +57,7 @@ impl Wrkspcs {
     }
 
     fn from_vec(workspaces: Vec<Workspace>) -> IndexMap<i32, Wrkspc> {
-        let monitors = Monitors::get().unwrap().to_vec();
-        let mut visible_workspaces: Vec<i32> = vec![];
-        for monitor in &monitors {
-            visible_workspaces.push(monitor.active_workspace.id);
-        }
+        let visible_workspaces = Self::get_visible_workspaces();
 
         let mut minified_initial_workspaces = IndexMap::new();
         for id in 1..=10 {
@@ -87,12 +80,7 @@ impl Wrkspcs {
     }
 
     fn update_visible(&mut self) {
-        let monitors = Monitors::get().unwrap().to_vec();
-        let mut visible_workspaces: Vec<i32> = vec![];
-
-        for monitor in &monitors {
-            visible_workspaces.push(monitor.active_workspace.id);
-        }
+        let visible_workspaces = Self::get_visible_workspaces();
 
         for wrkspc in &mut self.workspaces {
             if visible_workspaces.contains(wrkspc.0) {
@@ -102,6 +90,32 @@ impl Wrkspcs {
             }
         }
     }
+
+    fn get_visible_workspaces() -> Vec<i32> {
+        let monitors = Monitors::get().unwrap().to_vec();
+        let mut visible_workspaces: Vec<i32> = vec![];
+
+        for monitor in &monitors {
+            visible_workspaces.push(monitor.active_workspace.id);
+        }
+        visible_workspaces
+    }
+}
+
+// -----------------------
+/// Structs and trait extensions
+// -----------------------
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct Wrkspc {
+    active: bool,
+    visible: bool,
+    monitor: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Wrkspcs {
+    pub workspaces: IndexMap<i32, Wrkspc>,
 }
 
 pub trait I32Ex {
@@ -118,6 +132,3 @@ impl I32Ex for i32 {
         id
     }
 }
-
-// try to implement like this
-// impl From<WorkspaceType> for i32 {}
