@@ -1,15 +1,32 @@
 use hyprland::data::*;
+use hyprland::event_listener::EventListener;
 use hyprland::prelude::*;
 use hyprland::shared::WorkspaceType;
+use hyprland::Result;
 use indexmap::IndexMap;
 use serde::Serialize;
 
 impl Wrkspcs {
     // -----------------------
-    /// Public functions
+    /// Public function to be called
     // -----------------------
 
-    pub fn add(id: WorkspaceType) {
+    pub fn listen() -> Result<()> {
+        Self::print_initial_wrkspcs();
+
+        let mut listener = EventListener::new();
+        listener.add_workspace_added_handler(|id| Self::add(id));
+        listener.add_workspace_destroy_handler(|id| Self::destroy(id));
+        listener.add_workspace_change_handler(|_| Self::change());
+        listener.start_listener().unwrap();
+        Ok(())
+    }
+
+    // -----------------------
+    /// Main functions
+    // -----------------------
+
+    fn add(id: WorkspaceType) {
         let mut wrkspcs = Wrkspcs::get();
         wrkspcs.update_visible();
 
@@ -20,7 +37,7 @@ impl Wrkspcs {
         println!("{}", serde_json::to_string(&wrkspcs).unwrap());
     }
 
-    pub fn destroy(id: WorkspaceType) {
+    fn destroy(id: WorkspaceType) {
         let mut wrkspcs = Wrkspcs::get();
         wrkspcs.update_visible();
 
@@ -31,14 +48,14 @@ impl Wrkspcs {
         println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
     }
 
-    pub fn change() {
+    fn change() {
         let mut wrkspcs = Wrkspcs::get();
         wrkspcs.update_visible();
 
         println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
     }
 
-    pub fn print_initial_wrkspcs() {
+    fn print_initial_wrkspcs() {
         let wrkspcs = Wrkspcs::get();
         println!("{}", serde_json::to_string(&wrkspcs.workspaces).unwrap());
     }

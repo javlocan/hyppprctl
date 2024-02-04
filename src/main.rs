@@ -1,10 +1,10 @@
 mod hypr;
 
 use crate::hypr::workspaces::*;
-use hyprland::{event_listener::EventListener, Result};
 use std::env;
+use std::process::Command;
 
-fn main() -> Result<()> {
+fn main() -> () {
     let args: Vec<String> = env::args().collect();
     let args_amount: usize = args.len() - 1;
 
@@ -15,17 +15,10 @@ fn main() -> Result<()> {
     // Checking arguments
     else {
         if args[1] == "workspaces" {
-            Wrkspcs::print_initial_wrkspcs();
-
-            let mut listener = EventListener::new();
-            listener.add_workspace_added_handler(|id| Wrkspcs::add(id));
-            listener.add_workspace_destroy_handler(|id| Wrkspcs::destroy(id));
-            listener.add_workspace_change_handler(|_| Wrkspcs::change());
-            listener.start_listener().unwrap();
+            Wrkspcs::listen().unwrap()
+        } else if args[1] == "volume" {
         }
     }
-
-    Ok(())
 }
 
 fn say_bye() -> &'static str {
