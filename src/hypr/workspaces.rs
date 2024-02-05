@@ -135,7 +135,7 @@ pub struct Wrkspcs {
     pub workspaces: IndexMap<i32, Wrkspc>,
 }
 
-pub trait I32Ex {
+trait I32Ex {
     fn from_workspacetype(id: WorkspaceType) -> i32;
 }
 

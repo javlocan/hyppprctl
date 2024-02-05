@@ -1,8 +1,10 @@
+mod audio;
 mod hypr;
 
-use crate::hypr::workspaces::*;
 use std::env;
-use std::process::Command;
+
+use crate::audio::volume::*;
+use crate::hypr::workspaces::*;
 
 fn main() -> () {
     let args: Vec<String> = env::args().collect();
@@ -17,6 +19,11 @@ fn main() -> () {
         if args[1] == "workspaces" {
             Wrkspcs::listen().unwrap()
         } else if args[1] == "volume" {
+            if args_amount == 1 {
+                Vlm::listen().unwrap();
+            } else if args_amount > 1 {
+                Vlm::set(args[2..=args_amount].to_vec())
+            }
         }
     }
 }
