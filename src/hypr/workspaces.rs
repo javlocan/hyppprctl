@@ -18,6 +18,10 @@ impl Wrkspcs {
         listener.add_workspace_added_handler(|id| Self::add(id));
         listener.add_workspace_destroy_handler(|id| Self::destroy(id));
         listener.add_workspace_change_handler(|_| Self::change());
+        listener.add_workspace_moved_handler(|_| Self::change());
+        listener.add_window_moved_handler(|_| Self::change());
+        // For changing style of cell in workspaces
+        // listener.add_active_monitor_handler(|_| Self::change());
         listener.start_listener().unwrap();
         Ok(())
     }
@@ -131,6 +135,7 @@ pub struct Wrkspc {
 }
 
 #[derive(Debug, Serialize)]
+// pub struct Wrkspcs(IndexMap<i32,Wrkspc>)
 pub struct Wrkspcs {
     pub workspaces: IndexMap<i32, Wrkspc>,
 }

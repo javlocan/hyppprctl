@@ -4,6 +4,7 @@
 
 ## -- TODO()
 
+- [ ] Wrkspcs can be differently structed // comment is on
 - [ ] control the arguments better
 - [ ] looking for a better name than hyprevents
 - Keywords: eww, yuck, hypr, os, DE...
