@@ -1,0 +1,13 @@
+[package]
+name = "hyppprctl"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+audioctl = { path = "../audioctl" }
+hyprland = "0.3.12"
+indexmap ={ version = "2.2.2" , features = ["serde"]}
+serde = "1.0.196"
+serde_json = "1.0.113"

@@ -1,13 +1,8 @@
-[package]
-name = "hyprevents"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+resolver = "2"
 
-[dependencies]
-hyprland = "0.3.12"
-indexmap ={ version = "2.2.2" , features = ["serde"]}
-pipewire = "0.7.2"
-serde = "1.0.196"
-serde_json = "1.0.113"
+members = [
+  "audioctl",
+  "hyppprctl"
+]
