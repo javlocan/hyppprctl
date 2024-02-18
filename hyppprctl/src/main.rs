@@ -7,7 +7,7 @@ use workspaces::workspaces::*;
 
 #[derive(Parser, Debug)] // requires `derive` feature
 #[command(name = "hyppprctl")]
-#[command(bin_name = "hyprctl")]
+#[command(bin_name = "hyppprctl")]
 struct Hyppprctl {
     #[command(subcommand)]
     commands: Commands,

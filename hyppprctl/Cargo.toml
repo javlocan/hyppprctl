@@ -1,3 +1,4 @@
+workspace = { members = ["ewwctl"] }
 [package]
 name = "hyppprctl"
 version = "0.1.0"
