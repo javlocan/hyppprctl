@@ -1,33 +1,49 @@
 mod workspaces;
 
-use std::env;
+use std::process::Command;
 
-use audioctl::volume::*;
+use clap::{Parser, Subcommand};
 use workspaces::workspaces::*;
 
-fn main() -> () {
-    let args: Vec<String> = env::args().collect();
-    let args: &Vec<String> = &args[1..].to_vec();
-    dbg!("{}", args);
-
-    // If there're no arguments
-    if args.is_empty() {
-        println!("{}", say_bye())
-    }
-    // Checking arguments
-    else {
-        if args[1] == "workspaces" {
-            Wrkspcs::listen().unwrap()
-        } else if args[1] == "volume" {
-            if args.len() == 1 {
-                Vlm::listen().unwrap();
-            } else if args.len() > 1 {
-                Vlm::set(args[2..=args.len()].to_vec())
-            }
-        }
-    }
+#[derive(Parser, Debug)] // requires `derive` feature
+#[command(name = "hyppprctl")]
+#[command(bin_name = "hyprctl")]
+struct Hyppprctl {
+    #[command(subcommand)]
+    commands: Commands,
+}
+#[derive(Debug, Subcommand)]
+enum Commands {
+    #[command(about = "Starts workspaces daemon and listens")]
+    Workspaces,
+    #[command(about = "Runs commands through audioctl")]
+    Audio {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    #[command(external_subcommand)]
+    Hyprctl(Vec<String>),
 }
 
-fn say_bye() -> &'static str {
-    "Bye!"
+fn main() {
+    let args = Hyppprctl::parse();
+    match args.commands {
+        Commands::Workspaces => {
+            let _ = Wrkspcs::listen();
+        }
+        Commands::Audio { args } => {
+            Command::new("audioctl")
+                .args(args)
+                .output()
+                .expect("Audioctl is not installed");
+        }
+        Commands::Hyprctl(args) => {
+            let cmd = Command::new("hyprctl")
+                .args(args)
+                .output()
+                .expect("Hyprland is not installed??");
+            let stdout = String::from_utf8(cmd.stdout).unwrap();
+            println!("{}", stdout);
+        }
+    }
 }
