@@ -10,39 +10,48 @@ const SOCKET_ADDR: &str = "127.0.0.1:9000";
 #[derive(Parser, Debug)]
 #[command(name = "ewwctl")]
 #[command(bin_name = "ewwctl")]
+#[command(arg_required_else_help = true)]
+#[command(subcommand_help_heading = "Daemon")]
+#[command(subcommand_value_name = "start - help")]
+#[command(subcommand_negates_reqs = true)]
+#[command(next_help_heading = "Actions")]
 struct Ewwctl {
     #[command(subcommand)]
-    commands: Commands,
+    commands: Option<Commands>,
+    #[command(flatten)]
+    args: Option<Arguments>,
 }
-#[derive(Debug, Subcommand)]
-#[command(infer_subcommands = true)]
-enum Commands {
-    /// Starts the socket and listens to the output.
-    #[command(subcommand_help_heading = "Daemon")]
-    Start,
+#[derive(Args, Debug)]
+struct Arguments {
+    /// Module that emmits the event
+    /// *
+    #[arg(verbatim_doc_comment)]
+    #[arg(short, long)]
+    module: Module,
     /// e - Emmits events for the socket to process
     /// Event types:
     /// Hover       <module>
     /// Hoverlost   <module>
-    /// For more information: ewwctl e -h
-    #[command(verbatim_doc_comment)]
-    #[command(alias = "e")]
-    Event(EventArgs),
+    /// For more information: ewwctl -e -h
+    /// *
+    #[arg(verbatim_doc_comment)]
+    #[arg(short, long)]
+    event: Event,
+}
+#[derive(Debug, Subcommand)]
+enum Commands {
+    /// Starts the socket and listens to the output.
+    #[command(allow_missing_positional = true)]
+    Start,
     #[command(external_subcommand)]
     Eww(Vec<String>),
 }
-#[derive(Debug, Args)]
-#[command(args_conflicts_with_subcommands = true)]
-#[command(flatten_help = true)]
-struct EventArgs {
-    #[command(subcommand)]
-    command: Option<EventCommands>,
+#[derive(Debug, Clone, ValueEnum)]
+enum Event {
+    Hover,
+    Hoverlost,
 }
-#[derive(Debug, Subcommand, Clone)]
-enum EventCommands {
-    Hover { module: Module },
-    Hoverlost { module: Module },
-}
+
 #[derive(Debug, Clone, ValueEnum)]
 enum Module {
     Volume,
@@ -56,23 +65,23 @@ struct State {
 fn main() {
     let args = Ewwctl::parse();
 
-    match args.commands {
-        Commands::Start => run_socket().expect("Socket has failed"),
-        Commands::Event(args) => match args.command {
-            Some(EventCommands::Hoverlost { module }) | Some(EventCommands::Hover { module }) => {
-                send_event(module, None);
-            }
-            None => {}
-        },
-        Commands::Eww(args) => {
-            let cmd = Command::new("eww")
-                .args(args)
-                .output()
-                .expect("Eww is not installed??");
-            let stdout = String::from_utf8(cmd.stdout).unwrap();
-            println!("{}", stdout)
-        }
-    }
+    // match args.commands {
+    //     Commands::Start => run_socket().expect("Socket has failed"),
+    //     // Commands::Event(args) => match args.command {
+    //     //     Some(EventCommands::Hoverlost { module }) | Some(EventCommands::Hover { module }) => {
+    //     //         send_event(module, None);
+    //     //     }
+    //     //     None => {}
+    //     // },
+    //     Commands::Eww(args) => {
+    //         let cmd = Command::new("eww")
+    //             .args(args)
+    //             .output()
+    //             .expect("Eww is not installed??");
+    //         let stdout = String::from_utf8(cmd.stdout).unwrap();
+    //         println!("{}", stdout)
+    //     }
+    // }
 }
 
 fn send_event(module: Module, debounce: Option<u64>) {
