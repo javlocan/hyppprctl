@@ -1,0 +1,8 @@
+#!/bin/env sh
+
+cargo build
+cp -f ../target/debug/ewwctl "$HOME/.local/bin/"
+echo ""
+echo ""
+echo "-> copied binary to local PATH"
+echo ""

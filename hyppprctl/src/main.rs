@@ -9,12 +9,14 @@ use workspaces::workspaces::*;
 #[command(name = "hyppprctl")]
 #[command(bin_name = "hyppprctl")]
 struct Hyppprctl {
-    // #[arg(last = false)]
-    // hyprctl_commands: Vec<String>,
+    #[arg(last = false)]
+    hyprctl_commands: Vec<String>,
     #[command(subcommand)]
     commands: Commands,
 }
+
 #[derive(Debug, Subcommand)]
+#[command(infer_subcommands = true)]
 enum Commands {
     #[command(about = "Runs commands through audioctl")]
     Audio {
