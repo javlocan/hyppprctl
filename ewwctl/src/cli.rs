@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use strum_macros::EnumString;
 
 #[derive(Parser, Debug)]
 #[command(name = "ewwctl")]
@@ -39,15 +40,20 @@ pub enum Commands {
     #[command(external_subcommand)]
     Eww(Vec<String>),
 }
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, EnumString)]
 pub enum Event {
+    #[strum(serialize = "hover")]
     Hover,
+    #[strum(serialize = "hoverlost")]
     Hoverlost,
 }
 
-#[derive(Debug, Clone, ValueEnum, PartialEq)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, EnumString)]
 pub enum Module {
+    #[strum(serialize = "volume")]
     Volume,
+    #[strum(serialize = "brightness")]
     Brightness,
+    #[strum(serialize = "wifi")]
     Wifi,
 }

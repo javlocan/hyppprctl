@@ -52,26 +52,9 @@ fn run_socket() -> Result<(), Error> {
         // Receive arguments from UDP client
         let (num_bytes, src_addr) = socket.recv_from(&mut buf)?;
         let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
+        let msg = Arguments::from_msg(msg);
 
-        println!("inside loop: {}", msg);
-
-        if msg.contains("volume") {
-            if msg.contains("hover") {
-                let db = debounced_hover.lock().unwrap();
-                if db.is_some() {
-                    let mut state = STATE.lock().unwrap();
-                    *state = db.clone();
-                }
-            }
-            //         this code is for event sending
-            //         thread::sleep(time::Duration::from_millis(ms));
-            //         let _ = socket.send_to(msg.as_bytes(), SOCKET_ADDR);
-
-            println!("{:?}", STATE);
-            // println!("{}: {}", src_addr, arguments);
-        } else {
-            println!("NONAY MIERDA")
-        }
+        println!("{:?}", msg);
 
         // Echo the received data back to the client
         socket.send_to(&buf[..num_bytes], src_addr)?;
