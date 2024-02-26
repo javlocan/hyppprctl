@@ -1,26 +1,24 @@
 mod cli;
-use std::{io::Error, net::UdpSocket, process::Command, sync::Mutex, thread, time};
+mod events;
 
-use clap::Parser;
+use std::{io::Error, net::UdpSocket, process::Command, sync::Mutex};
 
 use crate::cli::*;
+use clap::Parser;
 
 // redo with ipv4 shit
 // const LOCALHOST: &str = "127.0.0.1";
 // const PORT: &str = "7878";
 const SOCKET_ADDR: &str = "127.0.0.1:9000";
 
-struct State {
-    module: Module,
-}
-
 fn main() {
     let input = Ewwctl::parse();
 
-    // Parse input
+    // First we'll handle the possible commands.
     match input.commands {
         Some(Commands::Start) => {
-            let _ = "as";
+            println!("Ewwctl socket is running on {}!", SOCKET_ADDR);
+            let _ = run_socket();
         }
         Some(Commands::Eww(args)) => {
             let cmd = Command::new("eww")
@@ -29,32 +27,11 @@ fn main() {
                 .expect("Eww is not installed?? Bad new then!");
             println!("{}", String::from_utf8(cmd.stdout).unwrap())
         }
-        None => {}
-    }
-    match input.args {
-        Some(arg) => {}
-        None => {}
-    }
-}
-
-fn send_event(module: Module, debounce: Option<u64>) {
-    // let msg = match module {
-    //     Module::Wifi => {}
-    // };
-    let msg = module;
-
-    let socket = UdpSocket::bind("0.0.0.0:0").expect("s");
-
-    let msg = format!("module:{:?}", msg);
-    println!("{}", msg);
-    let _ = socket.send_to(msg.as_bytes(), SOCKET_ADDR);
-
-    match debounce {
-        Some(ms) => {
-            thread::sleep(time::Duration::from_millis(ms));
-            let _ = socket.send_to(msg.as_bytes(), SOCKET_ADDR);
+        None => {
+            // If no command is passed, we handle the arguments
+            let arguments = input.args.unwrap();
+            arguments.send_event(Some(300));
         }
-        None => {}
     }
 }
 
@@ -67,6 +44,7 @@ fn run_socket() -> Result<(), Error> {
     #[allow(non_snake_case)]
     let STATE: Mutex<Option<Module>> = Mutex::new(None);
 
+    let debounced_hover: Mutex<Option<Module>> = Mutex::new(None);
     // Buffer to store incoming data
     let mut buf = [0; 4096];
 
@@ -76,10 +54,20 @@ fn run_socket() -> Result<(), Error> {
         let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
 
         println!("inside loop: {}", msg);
-        if msg.contains("volume") {
-            let state = STATE.lock().unwrap();
 
-            println!("{:?}", state);
+        if msg.contains("volume") {
+            if msg.contains("hover") {
+                let db = debounced_hover.lock().unwrap();
+                if db.is_some() {
+                    let mut state = STATE.lock().unwrap();
+                    *state = db.clone();
+                }
+            }
+            //         this code is for event sending
+            //         thread::sleep(time::Duration::from_millis(ms));
+            //         let _ = socket.send_to(msg.as_bytes(), SOCKET_ADDR);
+
+            println!("{:?}", STATE);
             // println!("{}: {}", src_addr, arguments);
         } else {
             println!("NONAY MIERDA")

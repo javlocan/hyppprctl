@@ -5,7 +5,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[command(bin_name = "ewwctl")]
 #[command(arg_required_else_help = true)]
 #[command(subcommand_help_heading = "Daemon")]
-#[command(subcommand_value_name = "start - help")]
+#[command(subcommand_value_name = "START--HELP")]
 #[command(subcommand_negates_reqs = true)]
 #[command(next_help_heading = "Actions")]
 pub struct Ewwctl {
@@ -45,7 +45,7 @@ pub enum Event {
     Hoverlost,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
 pub enum Module {
     Volume,
     Brightness,
