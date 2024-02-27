@@ -12,11 +12,13 @@ impl Arguments {
 
         let module = &msg[..collon];
         let module = Module::from_str(module, true).unwrap();
-        let event = &msg[collon..equal];
+        let event = &msg[collon + 1..equal];
         let event = Event::from_str(event, true).unwrap();
 
         Arguments { module, event }
     }
+    pub fn open_module_window() {}
+
     pub fn send_event(&self, debounce: Option<u64>) {
         let mut msg = format!("{:#?}:{:#?}", &self.module, &self.event);
 
