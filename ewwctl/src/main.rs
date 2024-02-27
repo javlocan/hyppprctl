@@ -1,15 +1,22 @@
 mod cli;
 mod events;
 
-use std::{io::Error, net::UdpSocket, process::Command, sync::Mutex, thread, time::Duration};
+use std::{
+    io::Error,
+    net::{Ipv4Addr, SocketAddrV4, UdpSocket},
+    process::Command,
+    sync::Mutex,
+    thread,
+    time::Duration,
+};
 
 use crate::cli::*;
 use clap::Parser;
 
-// redo with ipv4 shit
-// const LOCALHOST: &str = "127.0.0.1";
-// const PORT: &str = "7878";
-const SOCKET_ADDR: &str = "127.0.0.1:9000";
+const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
+const PORT: u16 = 9000;
+const SOCKET_ADDR: SocketAddrV4 = SocketAddrV4::new(LOCALHOST, PORT);
+// const SOCKET_ADDR: &str = "127.0.0.1:9000";
 
 fn main() {
     let input = Ewwctl::parse();
@@ -63,7 +70,7 @@ fn run_socket() -> Result<(), Error> {
                     } else {
                     }
                     let soc = UdpSocket::bind("0.0.0.0:0").expect("s");
-                    let _ = soc.send_to(msg.as_bytes(), SOCKET_ADDR);
+                    // let _ = soc.send_to(msg.as_bytes(), SOCKET_ADDR);
                 });
             }
 
