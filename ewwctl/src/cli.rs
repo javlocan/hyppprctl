@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use strum_macros::EnumString;
+use strum_macros::{Display, EnumString};
 
 #[derive(Parser, Debug)]
 #[command(name = "ewwctl")]
@@ -13,10 +13,10 @@ pub struct Ewwctl {
     #[command(subcommand)]
     pub commands: Option<Commands>,
     #[command(flatten)]
-    pub args: Option<Arguments>,
+    pub args: Option<Action>,
 }
-#[derive(Args, Debug)]
-pub struct Arguments {
+#[derive(Args, Debug, Clone)]
+pub struct Action {
     /// Module that emmits the event
     /// *
     #[arg(verbatim_doc_comment)]
@@ -31,6 +31,9 @@ pub struct Arguments {
     #[arg(verbatim_doc_comment)]
     #[arg(short, long)]
     pub event: Event,
+    #[arg(verbatim_doc_comment)]
+    #[arg(short, long)]
+    pub prop: Option<Prop>,
 }
 #[derive(Debug, Subcommand)]
 pub enum Commands {
@@ -40,20 +43,31 @@ pub enum Commands {
     #[command(external_subcommand)]
     Eww(Vec<String>),
 }
-#[derive(Debug, Clone, ValueEnum, EnumString)]
+#[derive(Debug, Clone, ValueEnum, EnumString, Display)]
 pub enum Event {
-    #[strum(serialize = "hover")]
+    #[strum(serialize = "hover", to_string = "hover")]
     Hover,
+    #[strum(to_string = "hoverlost")]
     #[strum(serialize = "hoverlost")]
     Hoverlost,
 }
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, EnumString)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, EnumString, Display)]
 pub enum Module {
+    #[strum(to_string = "volume")]
     #[strum(serialize = "volume")]
     Volume,
+    #[strum(to_string = "brightness")]
     #[strum(serialize = "brightness")]
     Brightness,
+    #[strum(to_string = "wifi")]
     #[strum(serialize = "wifi")]
     Wifi,
+}
+
+#[derive(Debug, Clone, ValueEnum, PartialEq, EnumString, Display)]
+pub enum Prop {
+    #[strum(to_string = "debounce")]
+    #[strum(serialize = "debounce")]
+    Debounce,
 }

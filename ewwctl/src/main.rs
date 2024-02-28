@@ -5,7 +5,7 @@ use std::{
     io::Error,
     net::{Ipv4Addr, SocketAddrV4, UdpSocket},
     process::Command,
-    sync::Mutex,
+    sync::{mpsc::sync_channel, Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -26,7 +26,7 @@ fn main() {
     match input.commands {
         Some(Commands::Start) => {
             println!("Ewwctl socket is running on {}!", SOCKET_ADDR);
-            let _ = run_socket();
+            let _ = run_server();
         }
         Some(Commands::Eww(args)) => {
             let cmd = Command::new("eww")
@@ -38,48 +38,66 @@ fn main() {
         None => {
             // If no command is passed, we handle the arguments
             let arguments = input.args.unwrap();
-            arguments.send_event(Some(300));
+            arguments.send_event();
         }
     }
 }
 
-fn run_socket() -> Result<(), Error> {
-    // Here we initializate the state.
-    let state: Mutex<Option<Module>> = Mutex::new(None);
-    let debounced_hover: Mutex<Option<Module>> = Mutex::new(None);
+fn run_server() -> Result<(), Error> {
+    let (tx, rx) = sync_channel::<Action>(0);
+    let ty = tx.clone();
 
-    // Bind the UDP socket to local address 127.0.0.1:9000
-    let socket = UdpSocket::bind(SOCKET_ADDR)?;
-    // Buffer to store incoming data
-    let mut buf = [0; 4096];
+    thread::spawn(move || -> Result<(), Error> {
+        println!("Hello! Welcome to disgustland");
 
-    println!("Hello! Welcome to disgustland");
+        let socket = UdpSocket::bind(SOCKET_ADDR)?;
+        let mut buf = [0; 4096];
+        // This part of the code will handle the props in threads
+        loop {
+            let (num_bytes, _src_addr) = socket.recv_from(&mut buf)?;
+            let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
+            let action = Action::from_msg(msg);
+            println!("{:?}", action);
+            let _ = ty.send(action);
+        }
+    });
+
+    let debounced: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
 
     loop {
-        // Receive arguments from UDP client
-        let (num_bytes, src_addr) = socket.recv_from(&mut buf)?;
-        let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
-        let action = Arguments::from_msg(msg);
+        let tz = tx.clone();
+        let action = rx.recv().unwrap();
+        let arg = &action.module.to_string();
+
+        let mut debounced = debounced.lock().unwrap();
 
         match action.event {
             Event::Hover => {
-                let _ = thread::spawn(move || {
-                    if debounced_hover.lock().unwrap().is_some() {
-                        thread::sleep(Duration::from_millis(300));
-                        *state.lock().unwrap() = debounced_hover.lock().unwrap().take();
-                    } else {
+                let _ = match action.prop {
+                    None => {
+                        Command::new("eww").arg("open").arg(arg).output().unwrap();
                     }
-                    let soc = UdpSocket::bind("0.0.0.0:0").expect("s");
-                    // let _ = soc.send_to(msg.as_bytes(), SOCKET_ADDR);
-                });
+                    Some(Prop::Debounce) => match *debounced {
+                        None => {
+                            *debounced = Some(action.module.clone());
+                            thread::spawn(move || {
+                                thread::sleep(Duration::from_millis(1300));
+                                let _ = tz.send(action);
+                            });
+                        }
+                        Some(Module::Volume) | Some(Module::Wifi) | Some(Module::Brightness) => {
+                            if debounced.clone().unwrap() == action.module {
+                                *debounced = None;
+                                Command::new("eww").arg("open").arg(arg).output().unwrap();
+                            } else {
+                                *debounced = Some(action.module.clone());
+                                let _ = tx.send(action);
+                            }
+                        }
+                    },
+                };
             }
-
             Event::Hoverlost => {}
         }
-
-        println!("Event: {:?}", msg);
-
-        // Echo the received data back to the client
-        socket.send_to(&buf[..num_bytes], src_addr)?;
     }
 }
