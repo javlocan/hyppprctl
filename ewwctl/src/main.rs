@@ -57,7 +57,6 @@ fn run_server() -> Result<(), Error> {
             let (num_bytes, _src_addr) = socket.recv_from(&mut buf)?;
             let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
             let action = Action::from_msg(msg);
-            println!("{:?}", action);
             let _ = ty.send(action);
         }
     });
@@ -67,22 +66,27 @@ fn run_server() -> Result<(), Error> {
     loop {
         let tz = tx.clone();
         let action = rx.recv().unwrap();
+
+        println!("{:?}", action);
         let arg = &action.module.to_string();
 
         let mut debounced = debounced.lock().unwrap();
 
         match action.event {
             Event::Hover => {
-                let _ = match action.prop {
-                    None => {
-                        Command::new("eww").arg("open").arg(arg).output().unwrap();
-                    }
-                    Some(Prop::Debounce) => match *debounced {
+                if !action.debounce {
+                    Command::new("eww").arg("open").arg(arg).output().unwrap();
+                } else {
+                    match *debounced {
                         None => {
                             *debounced = Some(action.module.clone());
                             thread::spawn(move || {
                                 thread::sleep(Duration::from_millis(1300));
-                                let _ = tz.send(action);
+                                let _ = tz.send(Action {
+                                    module: action.module,
+                                    event: action.event,
+                                    debounce: false,
+                                });
                             });
                         }
                         Some(Module::Volume) | Some(Module::Wifi) | Some(Module::Brightness) => {
@@ -94,7 +98,7 @@ fn run_server() -> Result<(), Error> {
                                 let _ = tx.send(action);
                             }
                         }
-                    },
+                    }
                 };
             }
             Event::Hoverlost => {}

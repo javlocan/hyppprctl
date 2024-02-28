@@ -1,4 +1,4 @@
-use std::{net::UdpSocket, str::from_utf8};
+use std::net::UdpSocket;
 
 use crate::cli::{Action, Event, Module, Prop};
 use clap::ValueEnum;
@@ -15,24 +15,26 @@ impl Action {
         let event = &msg[collon + 1..equal];
         let event = Event::from_str(event, true).unwrap();
         let prop = &msg[equal + 1..];
-        let prop = println!("{}", prop);
-        let prop = Some(Prop::from_str(prop, true).unwrap()).expect("No proppin is fucking me up");
+        let prop = Prop::from_str(prop, true).unwrap();
+
+        let debounce = prop == Prop::Debounce;
 
         Action {
             module,
             event,
-            prop: Some(prop),
+            debounce,
         }
     }
     // pub fn open_module_window() {}
 
     // pub fn send_event(&self, debounce: Option<u64>) {}
     pub fn send_event(&self) {
-        let prop = match &self.prop {
-            Some(..) => &self.prop.unwrap(),
-            None => None,
+        let prop = if &self.debounce == &true {
+            "debounce"
+        } else {
+            "none"
         };
-        let msg = format!("{:#?}:{:#?}={:#?}", &self.module, &self.event, &self.prop);
+        let msg = format!("{:#?}:{:#?}={}", &self.module, &self.event, prop);
 
         println!("{}", msg);
 

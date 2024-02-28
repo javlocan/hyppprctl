@@ -32,8 +32,8 @@ pub struct Action {
     #[arg(short, long)]
     pub event: Event,
     #[arg(verbatim_doc_comment)]
-    #[arg(short, long)]
-    pub prop: Option<Prop>,
+    #[arg(long)]
+    pub debounce: bool,
 }
 #[derive(Debug, Subcommand)]
 pub enum Commands {
@@ -70,4 +70,7 @@ pub enum Prop {
     #[strum(to_string = "debounce")]
     #[strum(serialize = "debounce")]
     Debounce,
+    #[strum(to_string = "none")]
+    #[strum(serialize = "none")]
+    None,
 }
