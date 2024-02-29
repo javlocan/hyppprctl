@@ -33,6 +33,7 @@ pub struct Action {
     pub event: Event,
     #[arg(verbatim_doc_comment)]
     #[arg(long)]
+    /// Adds a delay to the event execution
     pub debounce: bool,
 }
 #[derive(Debug, Subcommand)]

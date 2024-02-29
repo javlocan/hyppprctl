@@ -36,7 +36,7 @@ impl Action {
         };
         let msg = format!("{:#?}:{:#?}={}", &self.module, &self.event, prop);
 
-        println!("{}", msg);
+        // println!("{}", msg);
 
         let socket = UdpSocket::bind("0.0.0.0:0").expect("s");
         let _ = socket.send_to(msg.as_bytes(), SOCKET_ADDR);

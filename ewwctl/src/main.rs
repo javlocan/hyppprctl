@@ -44,7 +44,8 @@ fn main() {
 }
 
 fn run_server() -> Result<(), Error> {
-    let (tx, rx) = sync_channel::<Action>(0);
+    let (tx, rx) = sync_channel::<Action>(1);
+    // let (tx, rx) = channel();
     let ty = tx.clone();
 
     thread::spawn(move || -> Result<(), Error> {
@@ -61,47 +62,105 @@ fn run_server() -> Result<(), Error> {
         }
     });
 
-    let debounced: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
+    // let debounced: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
+    let debounce: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
+    let hover: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
 
     loop {
-        let tz = tx.clone();
         let action = rx.recv().unwrap();
+        let tz = tx.clone();
 
-        println!("{:?}", action);
         let arg = &action.module.to_string();
 
-        let mut debounced = debounced.lock().unwrap();
+        println!("-------------------------------------------");
+        println!("RECEIVED: {:?}", action);
+        println!("-------------------------------------------");
+
+        // tengo k ir lockeando donde sea
+        let debouncing = Arc::clone(&debounce);
+
+        // MAYBE STATE with hovered and debounced
 
         match action.event {
             Event::Hover => {
+                let debouncing = debouncing.lock().unwrap();
+                println!("debounced: {:?}", debouncing);
+
                 if !action.debounce {
-                    Command::new("eww").arg("open").arg(arg).output().unwrap();
-                } else {
-                    match *debounced {
+                    println!("eww open {}", arg);
+
+                    match *debouncing {
+                        // CAMBIAR ESTO
                         None => {
-                            *debounced = Some(action.module.clone());
-                            thread::spawn(move || {
-                                thread::sleep(Duration::from_millis(1300));
-                                let _ = tz.send(Action {
-                                    module: action.module,
-                                    event: action.event,
-                                    debounce: false,
-                                });
-                            });
+                            // let hovered = Arc::clone(&hover);
+                            let mut hovered = hover.lock().unwrap();
+                            *hovered = Some(action.module);
+                            let _ = Command::new("eww").arg("open").arg(arg).output().unwrap();
                         }
                         Some(Module::Volume) | Some(Module::Wifi) | Some(Module::Brightness) => {
-                            if debounced.clone().unwrap() == action.module {
-                                *debounced = None;
-                                Command::new("eww").arg("open").arg(arg).output().unwrap();
-                            } else {
+                            // if debounced.clone().unwrap() == action.module {
+                            //     *debounced = None;
+                            //     let _ = tz.send(Action {
+                            //         module: action.module,
+                            //         event: action.event,
+                            //         debounce: false,
+                            //     });
+                            // } else {
+                            //     *debounced = Some(action.module.clone());
+                            //     println!("i dont even know");
+                            //     let _ = tz.send(action);
+                            // }
+                        }
+                    }
+
+                    // si viene debounced, no abre nunca ventana !! quitar Command::new
+                } else {
+                    match *debouncing {
+                        None => {
+                            // we need to clone it to pass it through the channel
+                            let debounced = Arc::clone(&debounce);
+                            thread::spawn(move || {
+                                println!("debouncing");
+                                thread::sleep(Duration::from_millis(3000));
+                                let mut debounced = debounced.lock().unwrap();
                                 *debounced = Some(action.module.clone());
-                                let _ = tx.send(action);
-                            }
+                                let _ = tz.send(action);
+                                // let _ = tz.send(Action {
+                                //     module: action.module,
+                                //     event: action.event,
+                                //     debounce: false,
+                                // });
+                            });
+                        }
+                        // viene pidiendo debounce , asi k ya vemos
+                        Some(Module::Volume) | Some(Module::Wifi) | Some(Module::Brightness) => {
+                            let mut debounced = debounce.lock().unwrap();
+                            *debounced = if debounced.clone().unwrap() == action.module {
+                                None
+                            } else {
+                                Some(action.module.clone())
+                            };
+                            let _ = tz.send(action);
                         }
                     }
                 };
             }
-            Event::Hoverlost => {}
+
+            Event::Hoverlost => {
+                let mut debouncing = debounce.lock().unwrap();
+                if debouncing.as_ref().unwrap() == &action.module {
+                    *debouncing = None;
+                }
+                let mut hovered = hover.lock().unwrap();
+                let close = hovered.as_ref().unwrap_or_else(|| &action.module);
+                *hovered = None;
+                println!("eww close {}", close);
+                Command::new("eww")
+                    .arg("close")
+                    .arg(close.to_string())
+                    .output()
+                    .unwrap();
+            }
         }
     }
 }
