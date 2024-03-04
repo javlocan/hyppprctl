@@ -68,16 +68,20 @@ fn run_server() -> Result<(), Error> {
         }
     });
 
-    let dbncd: Arc<Mutex<Option<Action>>> = Arc::new(Mutex::new(None));
-
-    let main_t = main_t.clone();
-    let first_dbnc_t = dbnc_t.clone();
-
-    let dbncd_action = Arc::clone(&dbncd);
-
     // ------------------------------------------------------
     // ------------------------ this is the debouncing thread
     // ------------------------------------------------------
+
+    let dbncd: Arc<Mutex<Option<Action>>> = Arc::new(Mutex::new(None));
+    let dbncd_action = Arc::clone(&dbncd);
+
+    let main_t = main_t.clone();
+
+    let first_dbnc_t = dbnc_t.clone();
+
+    // !!! si le llega algo y hay estado y si no
+    // loop iniciando mpsc debounce
+    // let first_action = dbnc_r.recv().unwrap();
 
     thread::spawn(move || {
         //
@@ -87,49 +91,60 @@ fn run_server() -> Result<(), Error> {
         let mut action_moment = Instant::now();
         let mut deadline = Instant::now() + Duration::from_millis(300);
 
-        let first_action = dbnc_r.recv().unwrap();
-
-        thread::spawn(move || {
-            // *hovered_handle.lock().unwrap() = Some(action.module.clone());
-            thread::sleep(deadline - action_moment);
-            let _ = first_dbnc_t.send(first_action);
-        });
-
-        // let hovered = Arc::clone(&hovered);
-
         loop {
-            //
-            // Tras la primera acción aquí se bloquea para escucharla
-            // * se utiliza el tiempo calculado previamente
+            let first_action = dbnc_r.recv().unwrap();
+            let first_dbnc_t = first_dbnc_t.clone();
 
-            let duration = deadline - action_moment;
-            let action = dbnc_r.recv_timeout(duration);
+            thread::spawn(move || {
+                // *hovered_handle.lock().unwrap() = Some(action.module.clone());
+                thread::sleep(deadline - action_moment);
+                let _ = first_dbnc_t.send(first_action);
+            });
 
-            let dbncd_handle = Arc::clone(&dbncd_action);
-            let mut dbncd = dbncd_handle.lock().unwrap();
-            // let hovered_handle = Arc::clone(&hovered_handle);
-            // let mut hovered = hovered_handle.lock().unwrap();
-            action_moment = Instant::now();
+            // let hovered = Arc::clone(&hovered);
 
-            match action {
-                Ok(action) => {
-                    // Aquí: hemos recibido un evento antes de esperar el tiempo del debounce
-                    // Consumimos el evento, cambiamos el estado y reiniciamos
+            // QUIZA AQUI HAY QUE INICIAR UN SERVER MPSC
+            loop {
+                //
+                // Tras la primera acción aquí se bloquea para escucharla
+                // * se utiliza el tiempo calculado previamente
 
-                    // *hovered = Some(action.module);
-                    *dbncd = Some(action);
-                    deadline = action_moment + Duration::from_millis(300);
-                }
-                Err(_) => {
-                    // Los 300ms han pasado --> CASO A: tenemos evento y es el mismo: open
-                    //                          CASO B: tenemos distinto evento: re-debounce
+                let duration = deadline - action_moment;
+                let action = dbnc_r.recv_timeout(duration);
 
-                    // MIERDAAAAAA DE DONDE SACO LA ACCION ORIGINAL?????
-                    // ESTO EN REALIDAD ES UN ERROR
-                    match dbncd.clone() {
-                        None => {}
-                        Some(action) => {
-                            let _ = main_t.send(action.clone());
+                let dbncd_handle = Arc::clone(&dbncd_action);
+                let mut dbncd = dbncd_handle.lock().unwrap();
+                // let hovered_handle = Arc::clone(&hovered_handle);
+                // let mut hovered = hovered_handle.lock().unwrap();
+                action_moment = Instant::now();
+
+                match action {
+                    Ok(action) => {
+                        // Aquí: hemos recibido un evento antes de esperar el tiempo del debounce
+                        // Consumimos el evento, cambiamos el estado y reiniciamos
+
+                        // *hovered = Some(action.module);
+                        *dbncd = Some(action);
+                        println!(
+                            "[while debouncing] hover: {}",
+                            dbncd.clone().unwrap().module.to_string()
+                        );
+                        deadline = action_moment + Duration::from_millis(300);
+                    }
+                    Err(_) => {
+                        // Los 300ms han pasado --> CASO A: tenemos evento y es el mismo: open
+                        //                          CASO B: tenemos distinto evento: re-debounce
+
+                        // MIERDAAAAAA DE DONDE SACO LA ACCION ORIGINAL?????
+                        // ESTO EN REALIDAD ES UN ERROR
+                        match dbncd.clone() {
+                            None => {}
+                            Some(action) => {
+                                println!("opening: {}", action.module.to_string());
+                                let _ = main_t.send(action.clone());
+                                // *dbncd = None;
+                                break;
+                            }
                         }
                     }
                 }
@@ -156,7 +171,13 @@ fn run_server() -> Result<(), Error> {
                     .unwrap();
             }
             Event::Hoverlost => {
+                println!("hoverlost: {}", action.module.to_string());
                 *hovered_handle.lock().unwrap() = None;
+                Command::new("eww")
+                    .arg("close")
+                    .arg(action_module)
+                    .output()
+                    .unwrap();
             }
         }
     }
