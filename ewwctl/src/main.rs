@@ -1,16 +1,12 @@
 mod cli;
 mod events;
-
 use std::{
     io::Error,
     net::{Ipv4Addr, SocketAddrV4, UdpSocket},
     process::Command,
-    sync::{
-        mpsc::{channel, sync_channel},
-        Arc, Mutex,
-    },
+    sync::{mpsc::channel, Arc, Mutex},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crate::cli::*;
@@ -47,124 +43,120 @@ fn main() {
 }
 
 fn run_server() -> Result<(), Error> {
-    let (tx, rx) = channel();
-    let (t_dbnc, r_dbnc) = channel();
+    let (dbnc_t, dbnc_r) = channel();
+    let (main_t, main_r) = channel();
     // let (tx, rx) = channel();
-    let ty = tx.clone();
+
+    let from_udp_main_t = main_t.clone();
+    let from_udp_dbnc_t = dbnc_t.clone();
 
     thread::spawn(move || -> Result<(), Error> {
         println!("Hello! Welcome to disgustland");
 
         let socket = UdpSocket::bind(SOCKET_ADDR)?;
         let mut buf = [0; 4096];
-        // This part of the code will handle the props in threads
+        // THIS LOOP RECEIVES BY UDP AND SENDS TO THE PROGRAM BY MPSC
         loop {
             let (num_bytes, _src_addr) = socket.recv_from(&mut buf)?;
             let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
             let action = Action::from_msg(msg);
             if !action.debounce {
-                let _ = ty.send(action);
+                let _ = from_udp_main_t.send(action);
             } else {
-                let _ = t_dbnc.send(action);
+                let _ = from_udp_dbnc_t.send(action);
             }
         }
     });
-    let debounce: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
 
-    // -------------------------------------------------------
-    // this is a debouncing thread
+    let dbncd: Arc<Mutex<Option<Action>>> = Arc::new(Mutex::new(None));
+
+    let main_t = main_t.clone();
+    let first_dbnc_t = dbnc_t.clone();
+
+    let dbncd_action = Arc::clone(&dbncd);
+
+    // ------------------------------------------------------
+    // ------------------------ this is the debouncing thread
     // ------------------------------------------------------
 
-    let tz = tx.clone();
-    thread::spawn(move || loop {
-        let action = r_dbnc.recv().unwrap();
-        match r_dbnc.recv_timeout(Duration::from_millis(300)) {
-            Ok(_) => {}
-            Err(_) => {
-                tz.send(action);
+    thread::spawn(move || {
+        //
+        // La primera acción que llega se demora inmediatamente
+        // * a la vez registramos el momento actual y el límite
+
+        let mut action_moment = Instant::now();
+        let mut deadline = Instant::now() + Duration::from_millis(300);
+
+        let first_action = dbnc_r.recv().unwrap();
+
+        thread::spawn(move || {
+            // *hovered_handle.lock().unwrap() = Some(action.module.clone());
+            thread::sleep(deadline - action_moment);
+            let _ = first_dbnc_t.send(first_action);
+        });
+
+        // let hovered = Arc::clone(&hovered);
+
+        loop {
+            //
+            // Tras la primera acción aquí se bloquea para escucharla
+            // * se utiliza el tiempo calculado previamente
+
+            let duration = deadline - action_moment;
+            let action = dbnc_r.recv_timeout(duration);
+
+            let dbncd_handle = Arc::clone(&dbncd_action);
+            let mut dbncd = dbncd_handle.lock().unwrap();
+            // let hovered_handle = Arc::clone(&hovered_handle);
+            // let mut hovered = hovered_handle.lock().unwrap();
+            action_moment = Instant::now();
+
+            match action {
+                Ok(action) => {
+                    // Aquí: hemos recibido un evento antes de esperar el tiempo del debounce
+                    // Consumimos el evento, cambiamos el estado y reiniciamos
+
+                    // *hovered = Some(action.module);
+                    *dbncd = Some(action);
+                    deadline = action_moment + Duration::from_millis(300);
+                }
+                Err(_) => {
+                    // Los 300ms han pasado --> CASO A: tenemos evento y es el mismo: open
+                    //                          CASO B: tenemos distinto evento: re-debounce
+
+                    // MIERDAAAAAA DE DONDE SACO LA ACCION ORIGINAL?????
+                    // ESTO EN REALIDAD ES UN ERROR
+                    match dbncd.clone() {
+                        None => {}
+                        Some(action) => {
+                            let _ = main_t.send(action.clone());
+                        }
+                    }
+                }
             }
         }
     });
 
-    let hover: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
+    // ------------------------------------------------------
+    // -------------------------- this is the main event loop
+    // ------------------------------------------------------
+
+    let hovered_handle = Arc::clone(&dbncd);
 
     loop {
-        let action = rx.recv().unwrap();
+        let action = main_r.recv().unwrap();
+        let action_module = &action.module.to_string();
 
-        let arg = &action.module.to_string();
-
-        println!("-------------------------------------------");
-        println!("RECEIVED: {:?}", action);
-        println!("-------------------------------------------");
-
-        // tengo k ir lockeando donde sea
-        let debouncing = Arc::clone(&debounce);
-
-        // MAYBE STATE with hovered and debounced
-
-        let tz = tx.clone();
         match action.event {
             Event::Hover => {
-                if !action.debounce {
-                    // CAMBIAR ESTO
-                    let _ = Command::new("eww").arg("open").arg(arg).output().unwrap();
-
-                    // si viene debounced, no abre nunca ventana !! quitar Command::new
-                } else {
-                    match *debouncing {
-                        None => {
-                            // we need to clone it to pass it through the channel
-                            let debounced = Arc::clone(&debounce);
-                            thread::spawn(move || {
-                                println!("debouncing");
-                                ////////////////////////////////////////////////
-                                ////////////////////////////////////////////////
-                                ////////////////////////////////////////////////
-                                ////////////////////////////////////////////////
-                                // tengo un rx2
-                                thread::sleep(Duration::from_millis(2000));
-                                let mut debounced = debounced.lock().unwrap();
-                                *debounced = Some(action.module.clone());
-                                let _ = tz.send(action);
-                                // let _ = tz.send(Action {
-                                //     module: action.module,
-                                //     event: action.event,
-                                //     debounce: false,
-                                // });
-                            });
-                        }
-                        // viene pidiendo debounce , asi k ya vemos
-                        Some(Module::Volume) | Some(Module::Wifi) | Some(Module::Brightness) => {
-                            let mut debounced = debounce.lock().unwrap();
-                            *debounced = if debounced.clone().unwrap() == action.module {
-                                None
-                            } else {
-                                Some(action.module.clone())
-                            };
-                            let _ = tz.send(Action {
-                                module: action.module,
-                                event: action.event,
-                                debounce: false,
-                            });
-                        }
-                    }
-                };
+                Command::new("eww")
+                    .arg("open")
+                    .arg(action_module)
+                    .output()
+                    .unwrap();
             }
-
             Event::Hoverlost => {
-                let mut debouncing = debounce.lock().unwrap();
-                if debouncing.as_ref().unwrap() == &action.module {
-                    *debouncing = None;
-                }
-                //     let mut hovered = hover.lock().unwrap();
-                //     let close = hovered.as_ref().unwrap_or_else(|| &action.module);
-                //     *hovered = None;
-                //     println!("eww close {}", close);
-                //     Command::new("eww")
-                //         .arg("close")
-                //         .arg(close.to_string())
-                //         .output()
-                //         .unwrap();
+                *hovered_handle.lock().unwrap() = None;
             }
         }
     }
