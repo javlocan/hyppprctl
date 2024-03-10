@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use strum_macros::{Display, EnumString};
 
@@ -44,34 +49,34 @@ pub enum Commands {
     #[command(external_subcommand)]
     Eww(Vec<String>),
 }
-#[derive(Debug, Clone, ValueEnum, EnumString, Display)]
+#[derive(Debug, Clone, ValueEnum, EnumString, Display, Eq, PartialEq, Hash)]
 pub enum Event {
-    #[strum(serialize = "hover", to_string = "hover")]
+    #[strum(serialize = "hover")]
     Hover,
-    #[strum(to_string = "hoverlost")]
+    // #[strum(to_string = "hoverlost")]
     #[strum(serialize = "hoverlost")]
     Hoverlost,
 }
 
 #[derive(Debug, Clone, ValueEnum, PartialEq, EnumString, Display)]
 pub enum Module {
-    #[strum(to_string = "volume")]
+    // #[strum(to_string = "volume")]
     #[strum(serialize = "volume")]
     Volume,
-    #[strum(to_string = "brightness")]
+    // #[strum(to_string = "brightness")]
     #[strum(serialize = "brightness")]
     Brightness,
-    #[strum(to_string = "wifi")]
+    // #[strum(to_string = "wifi")]
     #[strum(serialize = "wifi")]
     Wifi,
 }
 
 #[derive(Debug, Clone, ValueEnum, PartialEq, EnumString, Display)]
 pub enum Prop {
-    #[strum(to_string = "debounce")]
+    // #[strum(to_string = "debounce")]
     #[strum(serialize = "debounce")]
     Debounce,
-    #[strum(to_string = "none")]
+    // #[strum(to_string = "none")]
     #[strum(serialize = "none")]
     None,
 }
