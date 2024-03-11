@@ -70,7 +70,7 @@ fn run_server() -> Result<(), Error> {
                 action.module.to_string(),
                 action.event.to_string()
             );
-            if *action.is_debounced() {
+            if *action.is_debounced() || action.cancels_debounce() {
                 let _ = from_udp_dbnc_t.send(action);
             } else {
                 let _ = from_udp_main_t.send(action);
@@ -82,128 +82,89 @@ fn run_server() -> Result<(), Error> {
     // ------------------------ this is the debouncing thread
     // ------------------------------------------------------
 
+    let windows: Arc<Mutex<Module>>;
     let debounce: Arc<Mutex<Debounce>> = Arc::new(Mutex::new(Debounce {
         state: HashMap::new(),
     }));
     let dbnc = debounce.clone();
 
     let main_t = main_t.clone();
-    let first_dbnc_t = dbnc_t.clone();
+    let dbnc_t = dbnc_t.clone();
 
     thread::spawn(move || {
-        //
-        // La primera acción que llega se demora inmediatamente
-        // * a la vez registramos el momento actual y el límite
-
-        let mut action_moment: Instant;
-        let mut deadline = Instant::now() + Duration::from_millis(1000);
         let mut i = 0;
 
         loop {
             i += 1;
-            println!("loop:{}", i);
-
+            println!("[WAITING FOR ACTION TO DEBOUNCE]");
             let action = dbnc_r.recv().unwrap();
+            let dbnc = Arc::clone(&dbnc);
+
             println!("loop:{} successfuly received action {:?}", i, action);
-
-            // -------------- this thread applies the delay and sends
-            let dbnc = dbnc.clone();
-            // let mut dbnc = dbnc.lock().unwrap();
-
-            if dbnc.lock().unwrap().aint_debouncing(action.event.clone()) {
-                let dbnc = dbnc.clone();
-                let first_dbnc_t = first_dbnc_t.clone();
-                thread::spawn(move || {
+            // ¿La acción que viene debouncea o cancela debounce?
+            // Cancela
+            //
+            if action.cancels_debounce() {
+                // = Hoverlost
+                // -> en el estado, cancelamos el debounce si existe
+                let mut dbnc = dbnc.lock().unwrap();
+                let event = Event::Hover;
+                if dbnc.state.contains_key(&event) {
+                    dbnc.state.get_mut(&event).unwrap().time = None;
+                }
+                let _ = main_t.send(action.clone());
+            } else {
+                // Si no cancela = Debounce
+                //
+                // ¿Contiene el estado este evento?
+                if dbnc.lock().unwrap().aint_debouncing(action.event.clone()) {
+                    // No -> change state and debounce
+                    //
                     let mut dbnc = dbnc.lock().unwrap();
                     dbnc.state.insert(
                         action.event.clone(),
                         TimedModule {
                             module: action.module.clone(),
-                            time: (Instant::now(), Instant::now() + Duration::from_millis(1000)),
+                            time: Some((
+                                Instant::now(),
+                                Instant::now() + Duration::from_millis(1000),
+                            )),
                         },
                     );
 
-                    drop(dbnc);
-                    thread::sleep(Duration::from_millis(1000));
-
-                    let _ = first_dbnc_t.send(action);
-                });
-            }
-
-            'inner: loop {
-                //
-                // Tras la primera acción aquí se bloquea para escucharla
-
-                let action = dbnc_r.recv();
-                let hoveraction = action.unwrap();
-
-                let dbnc = Arc::clone(&dbnc);
-                let mut dbnc = dbnc.lock().unwrap();
-
-                if dbnc.aint_debouncing(hoveraction.event.clone()) {
-                    // CASE:
-                    dbnc.state.insert(
-                        hoveraction.event.clone(),
-                        TimedModule {
-                            module: hoveraction.module.clone(),
-                            time: (Instant::now(), Instant::now() + Duration::from_millis(1000)),
-                        },
-                    );
-                    break 'inner;
+                    let dbnc_t = dbnc_t.clone();
+                    thread::spawn(move || {
+                        thread::sleep(Duration::from_millis(1000));
+                        let _ = dbnc_t.send(action);
+                    });
                 } else {
-                    // CASE is_debouncing:
+                    // El estado tiene este evento registrado
+                    // Lo cogemos
                     //
-                    let debounced_module = dbnc.state.get(&hoveraction.event).unwrap();
-                    if debounced_module.is_done() {
-                        let _ = main_t.send(hoveraction);
-                        // drop(dbnc);
-                        break 'inner;
+                    let mut dbnc = dbnc.lock().unwrap();
+                    let debounced_module = dbnc.state.get(&action.event).unwrap();
+
+                    if debounced_module.is_cancelled() {
+                        dbnc.state.remove(&action.event);
                     } else {
-                        let dbnc_t = first_dbnc_t.clone();
-                        let duration = debounced_module.time.1 - debounced_module.time.0;
-
-                        thread::spawn(move || {
-                            thread::sleep(duration);
-                            let _ = dbnc_t.send(hoveraction);
-                        });
-                    };
+                        if debounced_module.is_done() {
+                            // ¿Ha terminado?
+                            // Sí
+                            //
+                            // -> se procesa
+                            let _ = main_t.send(action);
+                        } else {
+                            // No
+                            //
+                            // -> se re_debouncea
+                            let dbnc_t = dbnc_t.clone();
+                            thread::spawn(move || {
+                                thread::sleep(Duration::from_millis(1000));
+                                let _ = dbnc_t.send(action);
+                            });
+                        }
+                    }
                 }
-
-                // match action {
-                //     Ok(action) => {
-                //         // Aquí: hemos recibido un evento antes de esperar el tiempo del debounce
-                //         // Consumimos el evento, cambiamos el estado y reiniciamos
-                //
-                //         action_moment = Instant::now();
-                //         deadline = action_moment + Duration::from_millis(1000);
-                //
-                //         let dbnc = dbnc.state.get_mut(&action.event).unwrap();
-                //         *dbnc = TimedModule {
-                //             module: action.module,
-                //             time: (Instant::now(), Instant::now() + Duration::from_millis(1000)),
-                //         };
-                //
-                //         println!("[while debouncing] hover: {}", action.module.to_string());
-                //     }
-                //
-                //     Err(_) => {
-                //         // Los 1000ms han pasado --> CASO A: tenemos evento y es el mismo: open
-                //         //                          CASO B: tenemos distinto evento: re-debounce
-                //
-                //         // let mut dbncd = dbncd.clone();
-                //         let _answer = dbnc_r.recv();
-                //         let dbncd = dbncd.clone();
-                //         match dbncd {
-                //             None => {}
-                //             Some(action) => {
-                //                 println!("opening: {}", action.module.to_string());
-                //                 let _ = main_t.send(action.clone());
-                //                 // dbncd = None;
-                //                 continue 'outer;
-                //             }
-                //         }
-                //     }
-                // }
             }
         }
     });
@@ -228,8 +189,6 @@ fn run_server() -> Result<(), Error> {
             }
             Event::Hoverlost => {
                 println!("hoverlost: {}", action.module.to_string());
-                let mut dbnc = dbnc.lock().unwrap();
-                dbnc.state.remove_entry(&Event::Hover);
                 Command::new("eww")
                     .arg("close")
                     .arg(action_module)

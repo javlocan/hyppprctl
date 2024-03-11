@@ -6,6 +6,9 @@ impl Action {
     pub fn is_debounced(&self) -> &bool {
         return &self.debounce;
     }
+    pub fn cancels_debounce(&self) -> bool {
+        return &self.event == &Event::Hoverlost;
+    }
 }
 
 impl Debounce {
@@ -15,7 +18,10 @@ impl Debounce {
 }
 impl TimedModule {
     pub fn is_done(&self) -> bool {
-        return &self.time.1 <= &Instant::now();
+        return &self.time.unwrap().1 <= &Instant::now();
+    }
+    pub fn is_cancelled(&self) -> bool {
+        return self.time.is_none();
     }
 }
 pub struct Debounce {
@@ -23,5 +29,5 @@ pub struct Debounce {
 }
 pub struct TimedModule {
     pub module: Module,
-    pub time: (Instant, Instant),
+    pub time: Option<(Instant, Instant)>,
 }
