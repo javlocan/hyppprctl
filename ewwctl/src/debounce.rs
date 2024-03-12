@@ -9,6 +9,10 @@ impl Action {
     pub fn cancels_debounce(&self) -> bool {
         return &self.event == &Event::Hoverlost;
     }
+    pub fn without_debounce(mut self) -> Self {
+        self.debounce = false;
+        return self;
+    }
 }
 
 impl Debounce {
@@ -18,7 +22,7 @@ impl Debounce {
 }
 impl TimedModule {
     pub fn is_done(&self) -> bool {
-        return &self.time.unwrap().1 <= &Instant::now();
+        return &self.time.unwrap() <= &Instant::now();
     }
     pub fn is_cancelled(&self) -> bool {
         return self.time.is_none();
@@ -27,7 +31,8 @@ impl TimedModule {
 pub struct Debounce {
     pub state: HashMap<Event, TimedModule>,
 }
+#[derive(Debug)]
 pub struct TimedModule {
     pub module: Module,
-    pub time: Option<(Instant, Instant)>,
+    pub time: Option<Instant>,
 }

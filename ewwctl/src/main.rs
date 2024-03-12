@@ -35,7 +35,7 @@ fn main() {
             let cmd = Command::new("eww")
                 .args(args)
                 .output()
-                .expect("Eww is not installed?? Bad new then!");
+                .expect("Eww is not installed?? Bad news then!");
             println!("{}", String::from_utf8(cmd.stdout).unwrap())
         }
         None => {
@@ -82,7 +82,6 @@ fn run_server() -> Result<(), Error> {
     // ------------------------ this is the debouncing thread
     // ------------------------------------------------------
 
-    let windows: Arc<Mutex<Module>>;
     let debounce: Arc<Mutex<Debounce>> = Arc::new(Mutex::new(Debounce {
         state: HashMap::new(),
     }));
@@ -97,6 +96,7 @@ fn run_server() -> Result<(), Error> {
         loop {
             i += 1;
             println!("[WAITING FOR ACTION TO DEBOUNCE]");
+            println!("[DBNC STATE] {:?}", &debounce.lock().unwrap().state);
             let action = dbnc_r.recv().unwrap();
             let dbnc = Arc::clone(&dbnc);
 
@@ -105,65 +105,72 @@ fn run_server() -> Result<(), Error> {
             // Cancela
             //
             if action.cancels_debounce() {
-                // = Hoverlost
-                // -> en el estado, cancelamos el debounce si existe
+                // ----------------------
+                // ------- CANCEL -------
+                // ----------------------
                 let mut dbnc = dbnc.lock().unwrap();
                 let event = Event::Hover;
                 if dbnc.state.contains_key(&event) {
                     dbnc.state.get_mut(&event).unwrap().time = None;
                 }
-                let _ = main_t.send(action.clone());
-            } else {
-                // Si no cancela = Debounce
-                //
-                // ¿Contiene el estado este evento?
-                if dbnc.lock().unwrap().aint_debouncing(action.event.clone()) {
-                    // No -> change state and debounce
-                    //
-                    let mut dbnc = dbnc.lock().unwrap();
-                    dbnc.state.insert(
-                        action.event.clone(),
-                        TimedModule {
-                            module: action.module.clone(),
-                            time: Some((
-                                Instant::now(),
-                                Instant::now() + Duration::from_millis(1000),
-                            )),
-                        },
-                    );
-
-                    let dbnc_t = dbnc_t.clone();
-                    thread::spawn(move || {
-                        thread::sleep(Duration::from_millis(1000));
-                        let _ = dbnc_t.send(action);
-                    });
-                } else {
-                    // El estado tiene este evento registrado
-                    // Lo cogemos
-                    //
-                    let mut dbnc = dbnc.lock().unwrap();
-                    let debounced_module = dbnc.state.get(&action.event).unwrap();
-
-                    if debounced_module.is_cancelled() {
-                        dbnc.state.remove(&action.event);
-                    } else {
-                        if debounced_module.is_done() {
-                            // ¿Ha terminado?
-                            // Sí
-                            //
-                            // -> se procesa
-                            let _ = main_t.send(action);
-                        } else {
-                            // No
-                            //
-                            // -> se re_debouncea
-                            let dbnc_t = dbnc_t.clone();
-                            thread::spawn(move || {
-                                thread::sleep(Duration::from_millis(1000));
-                                let _ = dbnc_t.send(action);
-                            });
-                        }
+                let _ = main_t.send(action);
+            } else if action.debounce {
+                // ----------------------
+                // ----- DEBOUNCING -----
+                // ----------------------
+                match dbnc.lock().unwrap().state.get(&action.event) {
+                    None => {
+                        let mut dbnc = dbnc.lock().unwrap();
+                        dbnc.state.insert(
+                            action.event.clone(),
+                            TimedModule {
+                                module: action.module.clone(),
+                                time: Some(Instant::now() + Duration::from_millis(1000)),
+                            },
+                        );
+                        let dbnc_t = dbnc_t.clone();
+                        thread::spawn(move || {
+                            thread::sleep(Duration::from_millis(1000));
+                            let _ = dbnc_t.send(action);
+                        });
                     }
+                    Some(TimedModule { module, time }) => match time {
+                        None => {
+                            // SI NO HAY TIEMPO EN EL TIMED MODULE -> Cancelaaaao
+                        }
+                        Some(end) => {
+                            // Hay un time en el timedmodule => camino normal
+                            match end.checked_duration_since(Instant::now()) {
+                                None => {
+                                    // EVENTO TERMINAO
+                                    dbnc.lock().unwrap().state.remove(&action.event);
+                                    let _ = dbnc_t.send(action.without_debounce());
+                                }
+                                Some(_) => {
+                                    dbnc.lock()
+                                        .unwrap()
+                                        .state
+                                        .get_mut(&action.event)
+                                        .unwrap()
+                                        .time = Some(Instant::now() + Duration::from_millis(1000));
+                                    let dbnc_t = dbnc_t.clone();
+                                    thread::spawn(move || {
+                                        thread::sleep(Duration::from_millis(1000));
+                                        let _ = dbnc_t.send(action);
+                                    });
+                                }
+                            }
+                        }
+                    },
+                }
+            } else {
+                // if !action.debounce
+                match dbnc.lock().unwrap().state.get(&action.event) {
+                    // AQUI NO TENGO NI IDEA AUN
+                    None => {
+                        let _ = main_t.send(action);
+                    }
+                    Some(timedmodule) => {}
                 }
             }
         }
@@ -173,7 +180,8 @@ fn run_server() -> Result<(), Error> {
     // -------------------------- this is the main event loop
     // ------------------------------------------------------
 
-    let dbnc = Arc::clone(&debounce);
+    // let dbnc = Arc::clone(&debounce);
+    let windows: Arc<Mutex<Option<Module>>> = Arc::new(Mutex::new(None));
 
     loop {
         let action = main_r.recv().unwrap();
@@ -181,6 +189,7 @@ fn run_server() -> Result<(), Error> {
 
         match action.event {
             Event::Hover => {
+                *windows.lock().unwrap() = Some(action.module);
                 Command::new("eww")
                     .arg("open")
                     .arg(action_module)
@@ -189,6 +198,7 @@ fn run_server() -> Result<(), Error> {
             }
             Event::Hoverlost => {
                 println!("hoverlost: {}", action.module.to_string());
+                *windows.lock().unwrap() = None;
                 Command::new("eww")
                     .arg("close")
                     .arg(action_module)
