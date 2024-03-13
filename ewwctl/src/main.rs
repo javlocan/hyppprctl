@@ -125,34 +125,33 @@ fn run_server() -> Result<(), Error> {
                             let _ = dbnc_t.send(action);
                         });
                     }
-                    Some(TimedModule { module, time }) => match time {
-                        None => {
-                            // SI NO HAY TIEMPO EN EL TIMED MODULE -> Cancelaaaao
-                        }
-                        Some(end) => {
-                            // Hay un time en el timedmodule => camino normal
-                            match end.checked_duration_since(Instant::now()) {
-                                None => {
-                                    // EVENTO TERMINAO
-                                    dbnc.lock().unwrap().state.remove(&action.event);
-                                    let _ = dbnc_t.send(action.without_debounce());
-                                }
-                                Some(_) => {
-                                    dbnc.lock()
-                                        .unwrap()
-                                        .state
-                                        .get_mut(&action.event)
-                                        .unwrap()
-                                        .time = Some(Instant::now() + Duration::from_millis(1000));
-                                    let dbnc_t = dbnc_t.clone();
-                                    thread::spawn(move || {
-                                        thread::sleep(Duration::from_millis(1000));
-                                        let _ = dbnc_t.send(action);
-                                    });
-                                }
+                    Some(TimedModule {
+                        time: Some(end),
+                        module,
+                    }) => {
+                        // Hay un time en el timedmodule => camino normal
+                        match end.checked_duration_since(Instant::now()) {
+                            None => {
+                                // EVENTO TERMINAO
+                                dbnc.lock().unwrap().state.remove(&action.event);
+                                let _ = dbnc_t.send(action.without_debounce());
+                            }
+                            Some(_) => {
+                                dbnc.lock()
+                                    .unwrap()
+                                    .state
+                                    .get_mut(&action.event)
+                                    .unwrap()
+                                    .time = Some(Instant::now() + Duration::from_millis(1000));
+                                let dbnc_t = dbnc_t.clone();
+                                thread::spawn(move || {
+                                    thread::sleep(Duration::from_millis(1000));
+                                    let _ = dbnc_t.send(action);
+                                });
                             }
                         }
-                    },
+                    }
+                    Some(TimedModule { time: None, module }) => {}
                 }
             } else {
                 // if !action.debounce
