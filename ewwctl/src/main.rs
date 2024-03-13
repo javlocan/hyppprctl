@@ -14,7 +14,7 @@ use std::{
 
 use crate::{cli::*, debounce::TimedModule};
 use clap::Parser;
-use debounce::Debounce;
+use debounce::{Debounce, DebounceState};
 
 const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 const PORT: u16 = 9000;
@@ -82,10 +82,9 @@ fn run_server() -> Result<(), Error> {
     // ------------------------ this is the debouncing thread
     // ------------------------------------------------------
 
-    let debounce: Arc<Mutex<Debounce>> = Arc::new(Mutex::new(Debounce {
+    let debounce: DebounceState = DebounceState(Arc::new(Mutex::new(Debounce {
         state: HashMap::new(),
-    }));
-    let dbnc = debounce.clone();
+    })));
 
     let main_t = main_t.clone();
     let dbnc_t = dbnc_t.clone();
@@ -98,7 +97,7 @@ fn run_server() -> Result<(), Error> {
             println!("[WAITING FOR ACTION TO DEBOUNCE]");
             println!("[DBNC STATE] {:?}", &debounce.lock().unwrap().state);
             let action = dbnc_r.recv().unwrap();
-            let dbnc = Arc::clone(&dbnc);
+            let dbnc = DebounceState(debounce.clone());
 
             println!("loop:{} successfuly received action {:?}", i, action);
             // ¿La acción que viene debouncea o cancela debounce?
@@ -118,16 +117,9 @@ fn run_server() -> Result<(), Error> {
                 // ----------------------
                 // ----- DEBOUNCING -----
                 // ----------------------
-                match dbnc.lock().unwrap().state.get(&action.event) {
+                match dbnc.clone().lock().unwrap().state.get(&action.event) {
                     None => {
-                        let mut dbnc = dbnc.lock().unwrap();
-                        dbnc.state.insert(
-                            action.event.clone(),
-                            TimedModule {
-                                module: action.module.clone(),
-                                time: Some(Instant::now() + Duration::from_millis(1000)),
-                            },
-                        );
+                        DebounceState::set_debounce(dbnc, action.clone());
                         let dbnc_t = dbnc_t.clone();
                         thread::spawn(move || {
                             thread::sleep(Duration::from_millis(1000));
