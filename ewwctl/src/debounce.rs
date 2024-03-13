@@ -27,7 +27,7 @@ impl Debounce {
 }
 
 impl DebounceState {
-    pub fn set_debounce(mut self, action: Action) {
+    pub fn set_debounce(&self, action: Action) {
         let mut debounce = self.lock().unwrap();
         debounce.state.insert(
             action.event.clone(),
@@ -39,6 +39,7 @@ impl DebounceState {
     }
 }
 
+#[derive(Clone)]
 pub struct DebounceState(pub Arc<Mutex<Debounce>>);
 impl Deref for DebounceState {
     type Target = Arc<Mutex<Debounce>>;

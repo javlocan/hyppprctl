@@ -85,7 +85,6 @@ fn run_server() -> Result<(), Error> {
     let debounce: DebounceState = DebounceState(Arc::new(Mutex::new(Debounce {
         state: HashMap::new(),
     })));
-
     let main_t = main_t.clone();
     let dbnc_t = dbnc_t.clone();
 
@@ -97,7 +96,7 @@ fn run_server() -> Result<(), Error> {
             println!("[WAITING FOR ACTION TO DEBOUNCE]");
             println!("[DBNC STATE] {:?}", &debounce.lock().unwrap().state);
             let action = dbnc_r.recv().unwrap();
-            let dbnc = DebounceState(debounce.clone());
+            let dbnc = DebounceState::clone(&debounce);
 
             println!("loop:{} successfuly received action {:?}", i, action);
             // ¿La acción que viene debouncea o cancela debounce?
@@ -117,9 +116,9 @@ fn run_server() -> Result<(), Error> {
                 // ----------------------
                 // ----- DEBOUNCING -----
                 // ----------------------
-                match dbnc.clone().lock().unwrap().state.get(&action.event) {
+                match dbnc.lock().unwrap().state.get(&action.event) {
                     None => {
-                        DebounceState::set_debounce(dbnc, action.clone());
+                        dbnc.set_debounce(action.clone());
                         let dbnc_t = dbnc_t.clone();
                         thread::spawn(move || {
                             thread::sleep(Duration::from_millis(1000));
