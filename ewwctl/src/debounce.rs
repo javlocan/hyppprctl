@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
     time::{Duration, Instant},
 };
 
@@ -33,7 +36,7 @@ impl DebounceState {
             action.event.clone(),
             TimedModule {
                 module: action.module.clone(),
-                time: Some(Instant::now() + Duration::from_millis(1000)),
+                time: Instant::now() + Duration::from_millis(1000),
             },
         );
     }
@@ -47,25 +50,13 @@ impl Deref for DebounceState {
         &self.0
     }
 }
+
 impl DerefMut for DebounceState {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
+
 pub struct Debounce {
     pub state: HashMap<Event, TimedModule>,
-}
-#[derive(Debug)]
-pub struct TimedModule {
-    pub module: Module,
-    pub time: Option<Instant>,
-}
-
-impl TimedModule {
-    pub fn is_done(&self) -> bool {
-        return &self.time.unwrap() <= &Instant::now();
-    }
-    pub fn is_cancelled(&self) -> bool {
-        return self.time.is_none();
-    }
 }

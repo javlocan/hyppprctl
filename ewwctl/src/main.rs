@@ -1,9 +1,9 @@
 mod cli;
-mod debounce;
+mod debouncer;
 mod events;
+mod server;
 
 use std::{
-    collections::HashMap,
     io::Error,
     net::{Ipv4Addr, SocketAddrV4, UdpSocket},
     process::Command,
@@ -12,9 +12,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{cli::*, debounce::TimedModule};
+use crate::cli::*;
 use clap::Parser;
-use debounce::{Debounce, DebounceState};
+use debouncer::model::{DebounceServer, TimedModule};
 
 const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 const PORT: u16 = 9000;
@@ -82,11 +82,7 @@ fn run_server() -> Result<(), Error> {
     // ------------------------ this is the debouncing thread
     // ------------------------------------------------------
 
-    let debounce: DebounceState = DebounceState(Arc::new(Mutex::new(Debounce {
-        state: HashMap::new(),
-    })));
-    let main_t = main_t.clone();
-    let dbnc_t = dbnc_t.clone();
+    let server = DebounceServer::init((dbnc_r, dbnc_t.clone()), main_t.clone());
 
     thread::spawn(move || {
         let mut i = 0;
