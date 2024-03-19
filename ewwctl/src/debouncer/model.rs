@@ -14,7 +14,7 @@ pub struct GlobalDebounceServer {
     pub server: GlobalDebouncer,
     pub dbnc_r: Receiver<Action>,
     pub dbnc_t: Sender<Action>,
-    pub main_t: Sender<Action>,
+    pub main_t: Arc<Mutex<Sender<Action>>>,
 }
 
 #[derive(Clone)]

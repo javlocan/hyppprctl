@@ -93,7 +93,7 @@ fn run_server() -> Result<(), Error> {
             println!("loop:{} successfuly received action {:?}", i, action);
 
             match action.is_being_debounced(&server) {
-                true => server.handle_action(&action),
+                true => server.handle_action(action),
                 false => server.start_for(action),
             };
         }

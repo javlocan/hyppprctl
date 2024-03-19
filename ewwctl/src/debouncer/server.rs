@@ -27,19 +27,38 @@ impl GlobalDebounceServer {
         };
         let debounce_server = EventDebounceServer(Arc::new(Mutex::new(debounce_server)));
 
-        self.insert(action.event.clone(), debounce_server);
+        self.insert(action.event.clone(), debounce_server.clone());
 
+        let d = sender.clone();
+        let a = action.clone();
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(1000));
-            let _ = sender.send(action.undebounced());
+            let _ = d.send(a.undebounced());
         });
 
         thread::spawn(move || loop {
             let action = receiver.recv().unwrap();
+
+            if action.cancels_debounce() {
+                debounce_server.lock().unwrap().state = None;
+            } else {
+                match action.debounce {
+                    true => {
+                        let sender = debounce_server.lock().unwrap().sender.clone();
+                        let _ = thread::spawn(move || {
+                            thread::sleep(Duration::from_millis(1000));
+                            let _ = sender.send(action.undebounced());
+                        });
+                    }
+                    false => {
+                        // let a = self.main_t.lock().unwrap().clone();
+                    }
+                }
+            }
         });
     }
 
-    pub fn handle_action(&self, action: &Action) -> () {
+    pub fn handle_action(&self, action: Action) -> () {
         let debounce_server = self.get(&action.event.or_associated_event()).unwrap();
 
         // ¿La acción que viene debouncea o cancela debounce?
@@ -113,6 +132,7 @@ impl GlobalDebounceServer {
         main_t: Sender<Action>,
     ) -> Self {
         let server = GlobalDebouncer(HashMap::new());
+        let main_t = Arc::new(Mutex::new(main_t));
         Self {
             server,
             dbnc_r,
