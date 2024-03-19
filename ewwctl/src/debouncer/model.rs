@@ -10,21 +10,21 @@ use std::{
 
 use crate::cli::{Action, Event, Module};
 
-pub struct DebounceServer {
-    pub server: Debouncer,
+pub struct GlobalDebounceServer {
+    pub server: GlobalDebouncer,
     pub dbnc_r: Receiver<Action>,
     pub dbnc_t: Sender<Action>,
     pub main_t: Sender<Action>,
 }
 
 #[derive(Clone)]
-pub struct Debouncer(pub HashMap<Event, EventDebouncer>);
+pub struct GlobalDebouncer(pub HashMap<Event, EventDebounceServer>);
 
 #[derive(Clone)]
-pub struct EventDebouncer(pub Arc<Mutex<EventDebounceServer>>);
+pub struct EventDebounceServer(pub Arc<Mutex<EventDebounce>>);
 
-pub struct EventDebounceServer {
-    pub channel: (Sender<Action>, Receiver<Action>),
+pub struct EventDebounce {
+    pub sender: Sender<Action>,
     pub state: Option<TimedModule>,
 }
 
@@ -38,40 +38,40 @@ pub struct TimedModule {
 // ----------------- Newtype Pattern --------------
 // ------------------------------------------------
 
-impl Deref for DebounceServer {
-    type Target = Debouncer;
+impl Deref for GlobalDebounceServer {
+    type Target = GlobalDebouncer;
     fn deref(&self) -> &Self::Target {
         &self.server
     }
 }
 
-impl DerefMut for DebounceServer {
+impl DerefMut for GlobalDebounceServer {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.server
     }
 }
 
-impl Deref for Debouncer {
-    type Target = HashMap<Event, EventDebouncer>;
+impl Deref for GlobalDebouncer {
+    type Target = HashMap<Event, EventDebounceServer>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for Debouncer {
+impl DerefMut for GlobalDebouncer {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Deref for EventDebouncer {
-    type Target = Arc<Mutex<EventDebounceServer>>;
+impl Deref for EventDebounceServer {
+    type Target = Arc<Mutex<EventDebounce>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for EventDebouncer {
+impl DerefMut for EventDebounceServer {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
