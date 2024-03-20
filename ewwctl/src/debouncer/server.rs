@@ -121,6 +121,13 @@ impl Action {
     pub fn is_being_debounced(&self, server: &GlobalDebounceServer) -> bool {
         server.contains_key(&self.event.or_associated_event())
     }
+
+    pub fn is_debounced(&self) -> &bool {
+        return &self.debounce;
+    }
+    pub fn cancels_debounce(&self) -> bool {
+        return &self.event == &Event::Hoverlost;
+    }
 }
 
 impl Event {

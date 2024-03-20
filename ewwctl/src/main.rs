@@ -1,7 +1,5 @@
 mod cli;
 mod debouncer;
-mod events;
-mod server;
 
 use std::{
     io::Error,
