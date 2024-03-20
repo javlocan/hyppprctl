@@ -16,7 +16,6 @@ use debouncer::model::GlobalDebounceServer;
 const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 const PORT: u16 = 9000;
 const SOCKET_ADDR: SocketAddrV4 = SocketAddrV4::new(LOCALHOST, PORT);
-// const SOCKET_ADDR: &str = "127.0.0.1:9000";
 
 fn main() {
     let input = Ewwctl::parse();
@@ -51,6 +50,10 @@ fn run_server() -> Result<(), Error> {
     let from_udp_main_t = main_t.clone();
     let from_udp_dbnc_t = dbnc_t.clone();
 
+    // ------------------------------------------------------
+    // ----------------- this thread translates str to action
+    // ------------------------------------------------------
+
     thread::spawn(move || -> Result<(), Error> {
         println!("Hello! Welcome to disgustland");
 
@@ -62,11 +65,6 @@ fn run_server() -> Result<(), Error> {
             let msg = std::str::from_utf8(&buf[..num_bytes]).expect("Error converting to UTF-8");
             let action = Action::from_msg(msg);
 
-            println!(
-                "[UDP] sending: {} {}",
-                action.module.to_string(),
-                action.event.to_string()
-            );
             if *action.is_debounced() || action.cancels_debounce() {
                 let _ = from_udp_dbnc_t.send(action);
             } else {
@@ -80,7 +78,7 @@ fn run_server() -> Result<(), Error> {
     // ------------------------------------------------------
 
     thread::spawn(move || {
-        let mut server = GlobalDebounceServer::init((dbnc_r, dbnc_t.clone()), main_t.clone());
+        let mut server = GlobalDebounceServer::init(dbnc_r, dbnc_t.clone());
         let mut i = 0;
 
         loop {
@@ -88,11 +86,16 @@ fn run_server() -> Result<(), Error> {
             let action = server.dbnc_r.recv().unwrap();
 
             i += 1;
-            println!("loop:{} successfuly received action {:?}", i, action);
+            println!(
+                "[{}] successfuly received {} {}",
+                i,
+                action.event.to_string(),
+                action.module.to_string()
+            );
 
-            match action.is_being_debounced(&server) {
+            match action.is_being_debounced(&server.server) {
                 true => server.handle_action(action),
-                false => server.start_for(action),
+                false => server.start_for(action, main_t.clone()),
             };
         }
     });

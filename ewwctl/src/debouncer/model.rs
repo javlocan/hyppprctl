@@ -14,16 +14,14 @@ pub struct GlobalDebounceServer {
     pub server: GlobalDebouncer,
     pub dbnc_r: Receiver<Action>,
     pub dbnc_t: Sender<Action>,
-    pub main_t: Arc<Mutex<Sender<Action>>>,
 }
 
 #[derive(Clone)]
-pub struct GlobalDebouncer(pub HashMap<Event, EventDebounceServer>);
+pub struct GlobalDebouncer(pub Arc<Mutex<HashMap<Event, EventDebounceServer>>>);
 
-#[derive(Clone)]
-pub struct EventDebounceServer(pub Arc<Mutex<EventDebounce>>);
-
-pub struct EventDebounce {
+// #[derive(Clone)]
+// pub struct EventDebounceServer(pub Arc<Mutex<EventDebounce>>);
+pub struct EventDebounceServer {
     pub sender: Sender<Action>,
     pub state: Option<TimedModule>,
 }
@@ -44,21 +42,21 @@ pub struct TimedModule {
 // ----------------- Newtype Pattern --------------
 // ------------------------------------------------
 
-impl Deref for GlobalDebounceServer {
-    type Target = GlobalDebouncer;
-    fn deref(&self) -> &Self::Target {
-        &self.server
-    }
-}
-
-impl DerefMut for GlobalDebounceServer {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.server
-    }
-}
+// impl Deref for GlobalDebounceServer {
+//     type Target = GlobalDebouncer;
+//     fn deref(&self) -> &Self::Target {
+//         &self.server
+//     }
+// }
+//
+// impl DerefMut for GlobalDebounceServer {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.server
+//     }
+// }
 
 impl Deref for GlobalDebouncer {
-    type Target = HashMap<Event, EventDebounceServer>;
+    type Target = Arc<Mutex<HashMap<Event, EventDebounceServer>>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -70,15 +68,15 @@ impl DerefMut for GlobalDebouncer {
     }
 }
 
-impl Deref for EventDebounceServer {
-    type Target = Arc<Mutex<EventDebounce>>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for EventDebounceServer {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+// impl Deref for EventDebounceServer {
+//     type Target = Arc<Mutex<EventDebounce>>;
+//     fn deref(&self) -> &Self::Target {
+//         &self.0
+//     }
+// }
+//
+// impl DerefMut for EventDebounceServer {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.0
+//     }
+// }
