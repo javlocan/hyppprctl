@@ -28,6 +28,12 @@ pub struct EventDebounce {
     pub state: Option<TimedModule>,
 }
 
+impl TimedModule {
+    pub fn has_passed(&self) -> bool {
+        &Instant::now() >= &self.time
+    }
+}
+
 #[derive(Debug)]
 pub struct TimedModule {
     pub module: Module,

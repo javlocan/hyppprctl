@@ -29,7 +29,8 @@ impl GlobalDebounceServer {
 
         self.insert(action.event.clone(), debounce_server.clone());
 
-        let d = sender.clone();
+        // let d = sender.clone();
+        let d = self.dbnc_t.clone();
         let a = action.clone();
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(1000));
@@ -37,6 +38,7 @@ impl GlobalDebounceServer {
         });
 
         let main_t = self.main_t.clone();
+        let d = self.dbnc_t.clone();
 
         thread::spawn(move || {
             while debounce_server.lock().unwrap().state.is_some() {
@@ -44,14 +46,25 @@ impl GlobalDebounceServer {
 
                 match action.debounce {
                     true => {
-                        let sender = debounce_server.lock().unwrap().sender.clone();
+                        // let sender = debounce_server.lock().unwrap().sender.clone();
+                        let d = d.clone();
                         let _ = thread::spawn(move || {
                             thread::sleep(Duration::from_millis(1000));
-                            let _ = sender.send(action.undebounced());
+                            let _ = d.send(action.undebounced());
                         });
                     }
                     false => {
-                        let _ = main_t.lock().unwrap().send(action);
+                        let state = &debounce_server.lock().unwrap().state;
+                        let time = state.as_ref().unwrap();
+
+                        match time.has_passed() {
+                            true => {
+                                let _ = main_t.lock().unwrap().send(action);
+                            }
+                            false => {
+                                let _ = sender.send(action);
+                            }
+                        }
                         debounce_server.lock().unwrap().state = None;
                     }
                 }
@@ -60,21 +73,27 @@ impl GlobalDebounceServer {
     }
 
     pub fn handle_action(&mut self, action: Action) -> () {
-        let debounce_server = self.get(&action.event.or_associated_event()).unwrap();
-        debounce_server.lock().unwrap().state = match action.cancels_debounce() {
-            true => None,
-            false => Some(TimedModule {
-                module: action.module.clone(),
-                time: Instant::now() + Duration::from_millis(1000),
-            }),
-        };
-
+        let debounce_server = self.get_mut(&action.event.or_associated_event()).unwrap();
         let sender = debounce_server.lock().unwrap().sender.clone();
-        self.remove(&action.event);
-        let _ = thread::spawn(move || {
-            thread::sleep(Duration::from_millis(1000));
-            let _ = sender.send(action.undebounced());
-        });
+
+        match action.cancels_debounce() {
+            true => {
+                debounce_server.lock().unwrap().state = None;
+            }
+            false => match action.debounce {
+                true => {
+                    debounce_server.lock().unwrap().state = Some(TimedModule {
+                        module: action.module.clone(),
+                        time: Instant::now() + Duration::from_millis(1000),
+                    })
+                }
+                false => {}
+            },
+        }
+
+        if let Err(err) = sender.send(action) {
+            self.remove(&err.0.event);
+        };
     }
 
     pub fn init(
