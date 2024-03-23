@@ -55,7 +55,7 @@ fn run_server() -> Result<(), Error> {
     // ------------------------------------------------------
 
     thread::spawn(move || -> Result<(), Error> {
-        println!("Hello! Welcome to disgustland");
+        // println!("Hello! Welcome to disgustland");
 
         let socket = UdpSocket::bind(SOCKET_ADDR)?;
         let mut buf = [0; 4096];
@@ -82,16 +82,27 @@ fn run_server() -> Result<(), Error> {
         let mut i = 0;
 
         loop {
+            println!("-----------------------------------");
             println!("[WAITING FOR ACTION TO DEBOUNCE]");
             let action = server.dbnc_r.recv().unwrap();
 
             i += 1;
+
             println!(
-                "[{}] successfuly received {} {}",
+                "[{}] {} {} on {} / {}",
                 i,
-                action.event.to_string(),
-                action.module.to_string()
+                match action.is_being_debounced(&server.server) {
+                    true => "Handling event",
+                    false => "Starting server for",
+                },
+                action.event.or_associated_event().to_string(),
+                action.module.to_string(),
+                match action.is_debounced() {
+                    true => "debouncing",
+                    false => "processing",
+                },
             );
+            println!("-----------------------------------");
 
             match action.is_being_debounced(&server.server) {
                 true => server.handle_action(action),

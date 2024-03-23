@@ -81,6 +81,7 @@ impl GlobalDebounceServer {
             .unwrap()
             .sender
             .clone();
+        println!("get sender for {}", action.event);
 
         if let Err(err) = sender.send(action) {
             println!("EEEERRROOOOOOOOOOOOORRR")
